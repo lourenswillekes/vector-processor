@@ -1,6 +1,6 @@
 /*************************************************
  * Lourens Willekes
- *
+ * February 16, 2017
  *
  *
  *
@@ -18,13 +18,14 @@
 #define MAX 66
 #define ATOI 48
 
+#define DEBUG 0
+
 void ctrlcHandler(int sig);
 
 int main(int argc, char **argv) {
 
     int j;
     int carry;
-    int status;
     int length;
 
     int pipe1fd[2];
@@ -39,12 +40,7 @@ int main(int argc, char **argv) {
     char bufsum[MAX]; 
 
     FILE *fpb, *fpa, *fpout;
-
-    struct sigaction ctrlc;
-    ctrlc.sa_handler = ctrlcHandler;
-    ctrlc.sa_flags = 0;
-    sigemptyset(&ctrlc.sa_mask);
-    sigaction(SIGINT, &ctrlc, NULL);
+    signal(SIGINT, ctrlcHandler);
 
 
     // make sure user has supplied both files
@@ -70,8 +66,8 @@ int main(int argc, char **argv) {
     fprintf(stderr, "PID Compl: %d\n", complpid);
     if (0 == complpid) {
 
-        fprintf(stderr, "Pausing, resume with Ctrl-C"); fflush(stderr);
-        // pause();
+        fprintf(stderr, "Pausing, resume with Ctrl-C "); fflush(stderr);
+        pause();
 
         fprintf(stderr, "Opening file B for reading\n");
         fpb = fopen(argv[2], "r");
@@ -84,7 +80,7 @@ int main(int argc, char **argv) {
             length = strlen(bufb) - 1;
             // remove newline
             bufb[length] = '\0';
-            //printf("1: %s\n", bufb);
+            if (DEBUG) printf("1: %s %d\n", bufb, length);
 
             // complementer
             fprintf(stderr, "Calculating One's Complement\n");
@@ -95,21 +91,26 @@ int main(int argc, char **argv) {
                     bufb[j] = '1';
                 }
             }
-            //printf("2: %s\n", bufb);
+            if (DEBUG) printf("2: %s %d\n", bufb, length);
 
             fprintf(stderr, "Writing complement to pipe 1\n");
-            write(pipe1fd[WRITE], bufb, length + 1);
+            write(pipe1fd[WRITE], bufb, length);
 
         }
 
+        write(pipe1fd[WRITE], "q", 1);
+
         fclose(fpb);
         close(pipe1fd[WRITE]);
+        fprintf(stderr, "Complementer exiting\n");
         exit(1);
 
     }
 
+    pause();
+
     // create the pipe between incrementer and adder
-    fprintf(stderr, "Creating pipe between incrementer and adder\n");
+    fprintf(stderr, "\nCreating pipe between incrementer and adder\n");
     if (0 > pipe(pipe2fd)) {
         perror("second pipe plumbing problem");
         exit(1);
@@ -129,11 +130,19 @@ int main(int argc, char **argv) {
         close(pipe2fd[READ]);
 
         // read from pipe1
-        while (read(pipe1fd[READ], bufb, MAX)) {
+        while (length = read(pipe1fd[READ], bufb, MAX - 2)) {
 
+            bufb[length] = '\0';
             fprintf(stderr, "Reading complement from pipe 1\n");
-            length = strlen(bufb);
-            //printf("3: %s %d\n", bufb, length);
+            if ('q' == bufb[0]) {
+                write(pipe2fd[WRITE], "q", 1);
+
+                close(pipe1fd[READ]);
+                close(pipe2fd[WRITE]);
+                fprintf(stderr, "Incrementer exiting\n");
+                exit(1);
+            }
+            if (DEBUG) printf("3: %s %d\n", bufb, length);
 
             // incrementer
             fprintf(stderr, "Incrementing\n");
@@ -145,16 +154,16 @@ int main(int argc, char **argv) {
                     break;
                 }
             }
-            //printf("4: %s\n", bufb);
+            if (DEBUG) printf("4: %s %d\n", bufb, length);
 
             fprintf(stderr, "Writing incremented value to pipe 2\n");
-            write(pipe2fd[WRITE], bufb, length + 1);
+            write(pipe2fd[WRITE], bufb, length);
 
         }
 
-        close(pipe1fd[READ]);
-        close(pipe2fd[WRITE]);
-        exit(1);
+        //close(pipe1fd[READ]);
+        //close(pipe2fd[WRITE]);
+        //exit(1);
 
     }
 
@@ -175,17 +184,24 @@ int main(int argc, char **argv) {
         close(pipe2fd[WRITE]);
 
         // read from pipe2
-        while (read(pipe2fd[READ], bufb, MAX)) {
+        while (length = read(pipe2fd[READ], bufb, MAX - 2)) {
 
+            bufb[length] = '\0';
             fprintf(stderr, "Reading incremented value from pipe 2\n");
-            length = strlen(bufb);
-            //printf("5: %s %d\n", bufb, length);
+            if ('q' == bufb[0]) {
+                fclose(fpa);
+                fclose(fpout);
+                close(pipe2fd[READ]);
+                fprintf(stderr, "Adder exiting\n");
+                exit(1);
+            }
+            if (DEBUG) printf("5: %s %d\n", bufb, length);
 
             fprintf(stderr, "Reading value from file A\n");
             fgets(bufa, MAX, fpa);
             // remove newline
             bufa[length] = '\0';
-            //printf("6: %s %d\n", bufa, strlen(bufa));
+            if (DEBUG) printf("6: %s %d\n", bufa, (int) strlen(bufa));
 
             // adder
             fprintf(stderr, "Adding the values\n");
@@ -216,9 +232,8 @@ int main(int argc, char **argv) {
                 }
 
             }
-            bufsum[length] = '\n';
-            bufsum[length + 1] = '\0';
-            printf("%s\n", bufsum);
+            bufsum[length] = '\0';
+            fprintf(stdout, "%s\n", bufsum);
 
             fprintf(stderr, "Writing difference to output file\n");
             fprintf(fpout, "%s", bufsum);
@@ -226,17 +241,7 @@ int main(int argc, char **argv) {
 
         }
 
-        fclose(fpa);
-        fclose(fpout);
-        close(pipe2fd[READ]);
-        exit(1);
-
     }
-
-
-    //waitpid(complpid, &status, 0);
-    //waitpid(increpid, &status, 0);
-    //waitpid(adderpid, &status, 0);
 
 
     return 0;
