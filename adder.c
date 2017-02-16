@@ -1,10 +1,11 @@
 /*************************************************
- * Lourens Willekes
+ * Lourens Willekes - adder.c
  * February 16, 2017
- *
- *
+ * CIS 452 Program 02
+ * Streamed Vector Processing
  *
  *************************************************/
+
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +13,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+
 
 #define READ 0
 #define WRITE 1
@@ -21,6 +23,7 @@
 #define DEBUG 0
 
 void ctrlcHandler(int sig);
+
 
 int main(int argc, char **argv) {
 
@@ -63,7 +66,6 @@ int main(int argc, char **argv) {
         perror("complementer fork failed");
         exit(1);
     }
-    fprintf(stderr, "PID Compl: %d\n", complpid);
     if (0 == complpid) {
 
         fprintf(stderr, "Pausing, resume with Ctrl-C "); fflush(stderr);
@@ -123,14 +125,13 @@ int main(int argc, char **argv) {
         perror("incrementer fork failed");
         exit(1);
     }
-    fprintf(stderr, "PID Incre: %d\n", increpid);
     if (0 == increpid) {
 
         close(pipe1fd[WRITE]);
         close(pipe2fd[READ]);
 
         // read from pipe1
-        while (length = read(pipe1fd[READ], bufb, MAX - 2)) {
+        while ((length = read(pipe1fd[READ], bufb, MAX - 2))) {
 
             bufb[length] = '\0';
             fprintf(stderr, "Reading complement from pipe 1\n");
@@ -174,7 +175,6 @@ int main(int argc, char **argv) {
         perror("adder fork failed");
         exit(1);
     }
-    fprintf(stderr, "PID Adder: %d\n", adderpid);
     if (0 == adderpid) {
  
         fprintf(stderr, "Opening file A for reading\n");
@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
         close(pipe2fd[WRITE]);
 
         // read from pipe2
-        while (length = read(pipe2fd[READ], bufb, MAX - 2)) {
+        while ((length = read(pipe2fd[READ], bufb, MAX - 2))) {
 
             bufb[length] = '\0';
             fprintf(stderr, "Reading incremented value from pipe 2\n");
@@ -236,17 +236,17 @@ int main(int argc, char **argv) {
             fprintf(stdout, "%s\n", bufsum);
 
             fprintf(stderr, "Writing difference to output file\n");
-            fprintf(fpout, "%s", bufsum);
+            fprintf(fpout, "%s\n", bufsum);
 
 
         }
 
     }
 
-
     return 0;
 
 }
+
 
 
 void ctrlcHandler(int sig) {
@@ -254,3 +254,4 @@ void ctrlcHandler(int sig) {
     return;
 
 }
+
