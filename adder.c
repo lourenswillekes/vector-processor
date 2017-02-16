@@ -98,6 +98,8 @@ int main(int argc, char **argv) {
             fprintf(stderr, "Writing complement to pipe 1\n");
             write(pipe1fd[WRITE], bufb, length);
 
+            sleep(1);
+
         }
 
         write(pipe1fd[WRITE], "q", 1);
